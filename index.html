@@ -1,3 +1,259 @@
-<h1>吴昊瑧是傻逼</h1><br>
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>DeepSeek Chat</title>
+    <style>
+        :root {
+            --deepseek-blue: #1764e9;
+            --hover-blue: #1354c7;
+            --user-bg: #f0f6ff;
+            --assistant-bg: #ffffff;
+        }
 
-<img src="https://cdn.luogu.com.cn/upload/image_hosting/qpgfo51f.png" alt="whz">
+        body {
+            background: #f8f9fa;
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+            margin: 0;
+        }
+
+        .container {
+            max-width: 800px;
+            margin: 0 auto;
+            height: 100vh;
+            display: flex;
+            flex-direction: column;
+        }
+
+        .chat-container {
+            flex: 1;
+            overflow-y: auto;
+            padding: 20px;
+            padding-bottom: 0;
+        }
+
+        .message {
+            display: flex;
+            gap: 15px;
+            margin-bottom: 20px;
+            animation: messageAppear 0.3s ease-out;
+        }
+
+        @keyframes messageAppear {
+            from { opacity: 0; transform: translateY(10px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+
+        .message.user {
+            flex-direction: row-reverse;
+        }
+
+        .avatar {
+            width: 40px;
+            height: 40px;
+            border-radius: 8px;
+            flex-shrink: 0;
+        }
+
+        .user .avatar {
+            background: linear-gradient(145deg, var(--deepseek-blue) 0%, var(--hover-blue) 100%);
+            box-shadow: 0 4px 8px rgba(23, 100, 233, 0.2);
+            position: relative;
+            overflow: hidden;
+        }
+
+        .user .avatar::after {
+            content: "";
+            position: absolute;
+            width: 60%;
+            height: 60%;
+            /* 新增背景图居中属性 */
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            background: url('data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path fill="white" d="M12 4a4 4 0 1 1 0 8 4 4 0 0 1 0-8zm0 10c4.42 0 8 1.79 8 4v2H4v-2c0-2.21 3.58-4 8-4z"/></svg>');
+            /* 新增背景图尺寸控制 */
+            background-size: contain;
+            background-repeat: no-repeat;
+        }
+
+        .assistant .avatar {
+            background: white;
+            border: 2px solid var(--deepseek-blue);
+            position: relative;
+        }
+
+        .assistant .avatar::after {
+            content: "DS";
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            color: var(--deepseek-blue);
+            font-weight: 800;
+            font-size: 18px;
+        }
+
+        .bubble {
+            max-width: 70%;
+            padding: 16px 24px;
+            border-radius: 16px;
+            line-height: 1.6;
+            font-size: 15px;
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.08);
+        }
+
+        .user .bubble {
+            background: var(--user-bg);
+            border-radius: 16px 4px 16px 16px;
+        }
+
+        .assistant .bubble {
+            background: var(--assistant-bg);
+            border-radius: 4px 16px 16px 16px;
+        }
+
+        .loading-bubble {
+            width: 80px;
+            height: 40px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .dot-flashing {
+            position: relative;
+            width: 8px;
+            height: 8px;
+            border-radius: 50%;
+            background-color: var(--deepseek-blue);
+            animation: dotFlashing 0.8s infinite alternate;
+        }
+
+        @keyframes dotFlashing {
+            0% { opacity: 0.3; transform: scale(0.8); }
+            100% { opacity: 1; transform: scale(1.2); }
+        }
+
+        .input-container {
+            padding: 20px;
+            background: rgba(255, 255, 255, 0.9);
+            border-top: 1px solid rgba(0, 0, 0, 0.05);
+        }
+
+        .deepseek-input {
+            width: 100%;
+            padding: 14px 20px;
+            border: 2px solid #e3e8ed;
+            border-radius: 20px;
+            font-size: 16px;
+            transition: all 0.3s ease;
+        }
+
+        .deepseek-input:focus {
+            border-color: var(--deepseek-blue);
+            box-shadow: 0 0 0 4px rgba(23, 100, 233, 0.15);
+            outline: none;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="chat-container" id="chatContainer">
+            <div class="message assistant">
+                <div class="avatar"></div>
+                <div class="bubble">
+                    您好！我是DeepSeek，有什么可以帮您？
+                </div>
+            </div>
+        </div>
+        
+        <div class="input-container">
+            <div class="input-box">
+                <input 
+                    type="text" 
+                    class="deepseek-input" 
+                    id="userInput"
+                    placeholder="输入消息..."
+                    autocomplete="off"
+                >
+            </div>
+        </div>
+    </div>
+
+    <script>
+        const chatContainer = document.getElementById('chatContainer');
+        const userInput = document.getElementById('userInput');
+
+        userInput.addEventListener('keypress', async (e) => {
+            if (e.key === 'Enter' && userInput.value.trim()) {
+                e.preventDefault();
+                try {
+                    userInput.disabled = true;  // 新增禁用输入框
+                    addMessage(userInput.value, 'user');
+                    const loadingId = addLoading();
+                    userInput.value = '';
+                    
+                    await new Promise(resolve => setTimeout(resolve, 3000));
+                    removeLoading(loadingId);
+                    addMessage('服务器繁忙，请稍后再试。', 'assistant');
+                    
+                } catch (error) {
+                    document.querySelectorAll('.loading-bubble').forEach(el => el.remove());
+                    addMessage('服务器繁忙，请稍后再试。', 'assistant');
+                } finally {
+                    userInput.disabled = false;  // 最终启用输入框
+                }
+            }
+        });
+
+        function addMessage(content, role) {
+            const messageDiv = document.createElement('div');
+            messageDiv.className = `message ${role}`;
+            
+            const avatar = document.createElement('div');
+            avatar.className = 'avatar';
+            
+            const bubble = document.createElement('div');
+            bubble.className = 'bubble';
+            bubble.textContent = content;
+            
+            messageDiv.appendChild(avatar);
+            messageDiv.appendChild(bubble);
+            chatContainer.appendChild(messageDiv);
+            scrollToBottom();
+        }
+
+        function addLoading() {
+            const messageDiv = document.createElement('div');
+            messageDiv.className = 'message assistant';
+            
+            const avatar = document.createElement('div');
+            avatar.className = 'avatar';
+            
+            const bubble = document.createElement('div');
+            bubble.className = 'bubble loading-bubble';
+            
+            const loader = document.createElement('div');
+            loader.className = 'dot-flashing';
+            
+            bubble.appendChild(loader);
+            messageDiv.appendChild(avatar);
+            messageDiv.appendChild(bubble);
+            chatContainer.appendChild(messageDiv);
+            scrollToBottom();
+            
+            return messageDiv;
+        }
+
+        function removeLoading(element) {
+            element.remove();
+        }
+
+        function scrollToBottom() {
+            chatContainer.scrollTop = chatContainer.scrollHeight;
+        }
+    </script>
+</body>
+</html>
